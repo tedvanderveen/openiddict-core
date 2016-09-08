@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using AspNet.Security.OpenIdConnect.Extensions;
 using JetBrains.Annotations;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -280,12 +281,28 @@ namespace Microsoft.AspNetCore.Builder {
         /// <summary>
         /// Registers a new ephemeral key used to sign the tokens issued by OpenIddict: the key
         /// is discarded when the application shuts down and tokens signed using this key are
-        /// automatically invalidated. This method should only be used during development:
-        /// on production, using a X.509 certificate stored in the machine store is recommended.
+        /// automatically invalidated. This method should only be used during development.
+        /// On production, using a X.509 certificate stored in the machine store is recommended.
         /// </summary>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
         public virtual OpenIddictBuilder AddEphemeralSigningKey() {
             return Configure(options => options.SigningCredentials.AddEphemeralKey());
+        }
+
+        /// <summary>
+        /// Registers a new ephemeral key used to sign the tokens issued by OpenIddict: the key
+        /// is discarded when the application shuts down and tokens signed using this key are
+        /// automatically invalidated. This method should only be used during development.
+        /// On production, using a X.509 certificate stored in the machine store is recommended.
+        /// </summary>
+        /// <param name="algorithm">The algorithm associated with the signing key.</param>
+        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
+        public virtual OpenIddictBuilder AddEphemeralSigningKey([NotNull] string algorithm) {
+            if (string.IsNullOrEmpty(algorithm)) {
+                throw new ArgumentException("The algorithm cannot be null or empty.", nameof(algorithm));
+            }
+
+            return Configure(options => options.SigningCredentials.AddEphemeralKey(algorithm));
         }
 
         /// <summary>
@@ -441,6 +458,19 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
+        /// Enables custom grant type support.
+        /// </summary>
+        /// <param name="type">The grant type associated with the flow.</param>
+        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
+        public virtual OpenIddictBuilder AllowCustomFlow([NotNull] string type) {
+            if (string.IsNullOrEmpty(type)) {
+                throw new ArgumentException("The grant type cannot be null or empty.", nameof(type));
+            }
+
+            return Configure(options => options.GrantTypes.Add(type));
+        }
+
+        /// <summary>
         /// Enables implicit flow support. For more information
         /// about this specific OAuth2/OpenID Connect flow, visit
         /// https://tools.ietf.org/html/rfc6749#section-4.2 and
@@ -490,15 +520,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the authorization endpoint using the default endpoint path (/connect/authorize).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableAuthorizationEndpoint() {
-            return EnableAuthorizationEndpoint(OpenIddictDefaults.AuthorizationEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the authorization endpoint using the specified path.
+        /// Enables the authorization endpoint.
         /// </summary>
         /// <param name="path">The relative path of the authorization endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -507,15 +529,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the introspection endpoint using the default endpoint path (/connect/introspect).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableIntrospectionEndpoint() {
-            return EnableIntrospectionEndpoint(OpenIddictDefaults.IntrospectionEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the introspection endpoint using the specified path.
+        /// Enables the introspection endpoint.
         /// </summary>
         /// <param name="path">The relative path of the logout endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -524,15 +538,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the logout endpoint using the default endpoint path (/connect/logout).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableLogoutEndpoint() {
-            return EnableLogoutEndpoint(OpenIddictDefaults.LogoutEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the logout endpoint using the specified path.
+        /// Enables the logout endpoint.
         /// </summary>
         /// <param name="path">The relative path of the logout endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -541,15 +547,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the revocation endpoint using the default endpoint path (/connect/revoke).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableRevocationEndpoint() {
-            return EnableRevocationEndpoint(OpenIddictDefaults.RevocationEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the revocation endpoint using the specified path.
+        /// Enables the revocation endpoint.
         /// </summary>
         /// <param name="path">The relative path of the revocation endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -558,15 +556,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the token endpoint using the default endpoint path (/connect/token).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableTokenEndpoint() {
-            return EnableTokenEndpoint(OpenIddictDefaults.TokenEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the token endpoint using the specified path.
+        /// Enables the token endpoint.
         /// </summary>
         /// <param name="path">The relative path of the token endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -575,15 +565,7 @@ namespace Microsoft.AspNetCore.Builder {
         }
 
         /// <summary>
-        /// Enables the userinfo endpoint using the default endpoint path (/connect/userinfo).
-        /// </summary>
-        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
-        public virtual OpenIddictBuilder EnableUserinfoEndpoint() {
-            return EnableUserinfoEndpoint(OpenIddictDefaults.UserinfoEndpointPath);
-        }
-
-        /// <summary>
-        /// Enables the userinfo endpoint using the specified path.
+        /// Enables the userinfo endpoint.
         /// </summary>
         /// <param name="path">The relative path of the userinfo endpoint.</param>
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
@@ -634,6 +616,20 @@ namespace Microsoft.AspNetCore.Builder {
         /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
         public virtual OpenIddictBuilder SetRefreshTokenLifetime(TimeSpan lifetime) {
             return Configure(options => options.RefreshTokenLifetime = lifetime);
+        }
+
+        /// <summary>
+        /// Configures OpenIddict to use a specific data protection provider
+        /// instead of relying on the default instance provided by the DI container.
+        /// </summary>
+        /// <param name="provider">The data protection provider used to create token protectors.</param>
+        /// <returns>The <see cref="OpenIddictBuilder"/>.</returns>
+        public virtual OpenIddictBuilder UseDataProtectionProvider(IDataProtectionProvider provider) {
+            if (provider == null) {
+                throw new ArgumentNullException(nameof(provider));
+            }
+
+            return Configure(options => options.DataProtectionProvider = provider);
         }
 
         /// <summary>

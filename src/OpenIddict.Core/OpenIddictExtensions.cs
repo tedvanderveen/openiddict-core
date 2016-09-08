@@ -7,7 +7,6 @@
 using System;
 using System.Linq;
 using AspNet.Security.OpenIdConnect.Extensions;
-using AspNet.Security.OpenIdConnect.Server;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,16 +63,6 @@ namespace Microsoft.AspNetCore.Builder {
             builder.Configure(options => {
                 // Register the OpenID Connect server provider in the OpenIddict options.
                 options.Provider = new OpenIddictProvider<TUser, TApplication, TAuthorization, TScope, TToken>();
-
-                // Register the OpenID Connect server middleware as a native module.
-                options.Modules.Add(new OpenIddictModule("OpenID Connect server", 0, app => {
-                    app.UseMiddleware<OpenIdConnectServerMiddleware>();
-                }));
-
-                // Register the OpenIddict middleware as a built-in module.
-                options.Modules.Add(new OpenIddictModule("OpenIddict", 1, app => {
-                    app.UseMiddleware<OpenIddictMiddleware<TUser, TApplication, TAuthorization, TScope, TToken>>();
-                }));
             });
 
             // Register the OpenIddict core services in the DI container.
@@ -83,12 +72,6 @@ namespace Microsoft.AspNetCore.Builder {
             builder.Services.TryAddScoped<OpenIddictTokenManager<TToken>>();
             builder.Services.TryAddScoped<OpenIddictUserManager<TUser>>();
             builder.Services.TryAddScoped<OpenIddictServices<TUser, TApplication, TAuthorization, TScope, TToken>>();
-
-            // Override the default options manager for IOptions<OpenIdConnectServerOptions>
-            // to ensure the OpenID Connect server middleware uses the OpenIddict options.
-            builder.Services.TryAddScoped<IOptions<OpenIdConnectServerOptions>>(provider => {
-                return provider.GetRequiredService<IOptions<OpenIddictOptions>>();
-            });
 
             return builder;
         }
@@ -121,16 +104,6 @@ namespace Microsoft.AspNetCore.Builder {
                 throw new InvalidOperationException("At least one OAuth2/OpenID Connect flow must be enabled.");
             }
 
-            // Ensure only supported grant types are listed to prevent
-            // unknown flows from being exposed in the discovery document.
-            if (options.GrantTypes.Any(type => type != OpenIdConnectConstants.GrantTypes.AuthorizationCode &&
-                                               type != OpenIdConnectConstants.GrantTypes.ClientCredentials &&
-                                               type != OpenIdConnectConstants.GrantTypes.Implicit &&
-                                               type != OpenIdConnectConstants.GrantTypes.Password &&
-                                               type != OpenIdConnectConstants.GrantTypes.RefreshToken)) {
-                throw new InvalidOperationException("Only supported flows can be enabled.");
-            }
-
             // Ensure the authorization endpoint has been enabled when
             // the authorization code or implicit grants are supported.
             if (!options.AuthorizationEndpointPath.HasValue && (options.IsAuthorizationCodeFlowEnabled() ||
@@ -149,8 +122,13 @@ namespace Microsoft.AspNetCore.Builder {
                                                     "client credentials, password and refresh token flows.");
             }
 
+            // Get the modules registered by the application
+            // and add the OpenID Connect server middleware.
+            var modules = options.Modules.ToList();
+            modules.Add(new OpenIddictModule("OpenID Connect server", 0, builder => builder.UseOpenIdConnectServer(options)));
+
             // Register the OpenIddict modules in the ASP.NET Core pipeline.
-            foreach (var module in options.Modules.OrderBy(module => module.Position)) {
+            foreach (var module in modules.OrderBy(module => module.Position)) {
                 if (module?.Registration == null) {
                     throw new InvalidOperationException("An invalid OpenIddict module was registered.");
                 }
